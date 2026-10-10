@@ -1,0 +1,5 @@
+# Python dependencies
+
+# For BOM export to Excel
+pandas>=2.0
+openpyxl>=3.1
