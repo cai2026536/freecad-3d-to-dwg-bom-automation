@@ -65,18 +65,36 @@ def create_techdraw_page(doc, parts, page_name: str = "AssemblySheet"):
     page = doc.addObject("TechDraw::DrawPage", page_name)
     page.Label = "Assembly Drawing"
 
-    template_path = os.path.join(
-        FreeCAD.getResourceDir(),
-        "Mod",
-        "TechDraw",
-        "Templates",
-        "A4_Landscape_ISO7200.svg",
+    candidates = []
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    candidates.append(os.path.join(project_root, "templates", "techdraw_template.svg"))
+    candidates.append(
+        os.path.join(
+            FreeCAD.getResourceDir(),
+            "Mod",
+            "TechDraw",
+            "Templates",
+            "A4_Landscape_ISO7200.svg",
+        )
     )
 
-    if os.path.exists(template_path):
-        template = doc.addObject("TechDraw::DrawSVGTemplate", "Template")
-        template.Template = template_path
-        page.Template = template
+    template_path = None
+    for candidate in candidates:
+        if candidate and os.path.exists(candidate):
+            template_path = candidate
+            break
+
+    if template_path:
+        try:
+            template = doc.addObject("TechDraw::DrawSVGTemplate", "Template")
+            template.Template = template_path
+            page.Template = template
+        except Exception:
+            pass
+
+    if getattr(page, "Template", None) is None:
+        raise RuntimeError("Template not set for Page")
 
     row = 0
     col = 0
