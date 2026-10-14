@@ -6,7 +6,7 @@ This script is intended to be executed via FreeCADCmd. It will:
 - import a STEP file
 - split multi-body solids into individual part features
 - create a simple TechDraw page
-- export DXF drawing
+- export DXF drawing (or SVG fallback)
 - export BOM CSV and Excel
 
 Usage:
@@ -18,7 +18,7 @@ from __future__ import annotations
 import csv
 import os
 import sys
-from typing import List
+from typing import List, Optional
 
 import FreeCAD
 import Import
@@ -154,6 +154,39 @@ def export_excel_bom(csv_path: str, excel_path: str) -> str:
     return excel_path
 
 
+def export_techdraw_page(page, output_dir: str, base_name: str) -> Optional[str]:
+    """Export a TechDraw page to DXF if possible, otherwise SVG; return the exported path."""
+    dxf_path = os.path.join(output_dir, f"{base_name}.dxf")
+    svg_path = os.path.join(output_dir, f"{base_name}.svg")
+
+    # Preferred API
+    if hasattr(TechDraw, "exportPageAsDXF"):
+        try:
+            TechDraw.exportPageAsDXF(page, dxf_path)
+            return dxf_path
+        except Exception:
+            pass
+
+    # Fallback: some FreeCAD builds expose exportPageAsSvg or exportPageAsSVG
+    for name in ("exportPageAsSvg", "exportPageAsSVG", "exportPageAsSVG2"):
+        if hasattr(TechDraw, name):
+            try:
+                getattr(TechDraw, name)(page, svg_path)
+                return svg_path
+            except Exception:
+                pass
+
+    # As a final attempt, try to use the DrawPage object's export (older/newer variants)
+    try:
+        if hasattr(page, "exportToDXF"):
+            page.exportToDXF(dxf_path)
+            return dxf_path
+    except Exception:
+        pass
+
+    raise RuntimeError("This FreeCAD installation does not support TechDraw page DXF/SVG export")
+
+
 def process_step(input_step: str, output_dir: str) -> dict:
     """Main processing function for a single STEP input file."""
     ensure_dir(output_dir)
@@ -182,8 +215,7 @@ def process_step(input_step: str, output_dir: str) -> dict:
 
     page = create_techdraw_page(doc, parts, page_name=f"{base_name}_Page")
 
-    dxf_path = os.path.join(output_dir, f"{base_name}.dxf")
-    TechDraw.exportPageAsDXF(page, dxf_path)
+    exported_path = export_techdraw_page(page, output_dir, base_name)
 
     fcstd_path = os.path.join(output_dir, f"{base_name}.FCStd")
     doc.saveAs(fcstd_path)
@@ -199,7 +231,7 @@ def process_step(input_step: str, output_dir: str) -> dict:
 
     return {
         "document": fcstd_path,
-        "drawing": dxf_path,
+        "drawing": exported_path,
         "bom_csv": bom_csv,
         "bom_xlsx": bom_xlsx,
     }
