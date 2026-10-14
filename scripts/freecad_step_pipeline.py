@@ -155,7 +155,7 @@ def export_excel_bom(csv_path: str, excel_path: str) -> str:
 
 
 def export_techdraw_page(page, output_dir: str, base_name: str) -> Optional[str]:
-    """Export a TechDraw page to DXF if possible, otherwise SVG; return the exported path."""
+    """Export a TechDraw page to DXF if possible, otherwise SVG; if unsupported, return None."""
     dxf_path = os.path.join(output_dir, f"{base_name}.dxf")
     svg_path = os.path.join(output_dir, f"{base_name}.svg")
 
@@ -184,7 +184,11 @@ def export_techdraw_page(page, output_dir: str, base_name: str) -> Optional[str]
     except Exception:
         pass
 
-    raise RuntimeError("This FreeCAD installation does not support TechDraw page DXF/SVG export")
+    print(
+        "Warning: This FreeCAD installation does not support TechDraw page DXF/SVG export; "
+        "skipping drawing export and continuing with FCStd/BOM generation."
+    )
+    return None
 
 
 def process_step(input_step: str, output_dir: str) -> dict:
